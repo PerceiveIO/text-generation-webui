@@ -71,6 +71,7 @@ def load_model(model_name, loader=None):
         'AutoAWQ': AutoAWQ_loader,
         'QuIP#': QuipSharp_loader,
         'HQQ': HQQ_loader,
+        'slalom': slalom_loader,
     }
 
     metadata = get_model_metadata(model_name)
@@ -302,6 +303,29 @@ def ctransformers_loader(model_name):
     model, tokenizer = ctrans.from_pretrained(model_file)
     return model, tokenizer
 
+
+def slalom_loader(model_name):
+    from modules.slalom_model import SlalomModel
+
+    path = Path(f'{shared.args.model_dir}/{model_name}')
+    slalom = SlalomModel()
+    if slalom.model_type_is_auto():
+        model_file = path
+    else:
+        if path.is_file():
+            model_file = path
+        else:
+            entries = Path(f'{shared.args.model_dir}/{model_name}')
+            ckpt = list(entries.glob('*.ckpt'))
+            if len(ckpt) > 0:
+                model_file = ckpt[0]
+            else:
+                logger.error("Could not find a model for slalom.")
+                return None, None
+
+    logger.info(f'Slalom model loaded: {model_file}')
+    model, tokenizer = slalom.from_pretrained(model_file)
+    return model, tokenizer
 
 def AutoAWQ_loader(model_name):
     from awq import AutoAWQForCausalLM

@@ -10,6 +10,8 @@
   model_type: 'bloom'
 .*gpt2:
   model_type: 'gpt2'
+.*slalom:
+  model_type: 'slalom'
 .*falcon:
   model_type: 'falcon'
 .*mpt:

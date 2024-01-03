@@ -45,7 +45,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             yield ''
             return
 
-        if shared.model.__class__.__name__ in ['LlamaCppModel', 'Exllamav2Model', 'CtransformersModel']:
+        if shared.model.__class__.__name__ in ['LlamaCppModel', 'Exllamav2Model', 'CtransformersModel', 'SlalomModel']:
             generate_func = generate_reply_custom
         else:
             generate_func = generate_reply_HF
@@ -373,7 +373,7 @@ def generate_reply_HF(question, original_question, seed, state, stopping_strings
                 kwargs['stopping_criteria'].append(Stream(callback_func=callback))
                 clear_torch_cache()
                 with torch.no_grad():
-                    shared.model.generate(**kwargs)
+                    return shared.model.generate(**kwargs)
 
             def generate_with_streaming(**kwargs):
                 return Iteratorize(generate_with_callback, [], kwargs, callback=None)

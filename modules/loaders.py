@@ -28,6 +28,15 @@ loaders_and_params = OrderedDict({
         'disable_exllamav2',
         'transformers_info'
     ],
+    'slalom': [
+        'n_ctx',
+        'n_gpu_layers',
+        'n_batch',
+        'threads',
+        'model_type',
+        'no_mmap',
+        'mlock'
+    ],
     'llama.cpp': [
         'n_ctx',
         'n_gpu_layers',
@@ -315,6 +324,13 @@ loaders_samplers = {
         'auto_max_new_tokens',
     },
     'ctransformers': {
+        'temperature',
+        'top_p',
+        'top_k',
+        'repetition_penalty',
+        'repetition_penalty_range',
+    },
+    'slalom': {
         'temperature',
         'top_p',
         'top_k',
