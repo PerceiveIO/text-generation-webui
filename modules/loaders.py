@@ -33,7 +33,6 @@ loaders_and_params = OrderedDict({
         'n_gpu_layers',
         'n_batch',
         'threads',
-        'model_type',
         'no_mmap',
         'mlock'
     ],

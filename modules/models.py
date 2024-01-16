@@ -309,19 +309,19 @@ def slalom_loader(model_name):
 
     path = Path(f'{shared.args.model_dir}/{model_name}')
     slalom = SlalomModel()
-    if slalom.model_type_is_auto():
+    if path.is_file():
         model_file = path
     else:
-        if path.is_file():
-            model_file = path
+        entries = Path(f'{shared.args.model_dir}/{model_name}')
+        ckpt = list(entries.glob('*.ckpt'))
+        configs = list(entries.glob('config.json'))
+        if len(ckpt) > 0:
+            model_file = ckpt[0]
+        elif len(ckpt) > 0:
+            model_file = configs[0]
         else:
-            entries = Path(f'{shared.args.model_dir}/{model_name}')
-            ckpt = list(entries.glob('*.ckpt'))
-            if len(ckpt) > 0:
-                model_file = ckpt[0]
-            else:
-                logger.error("Could not find a model for slalom.")
-                return None, None
+            logger.error("Could not find a model for slalom.")
+            return None, None
 
     logger.info(f'Slalom model loaded: {model_file}')
     model, tokenizer = slalom.from_pretrained(model_file)
