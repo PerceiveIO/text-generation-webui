@@ -30,15 +30,14 @@ class SlalomModel:
         api = wandb.Api()
         run = api.run(base_job)
         cfg = omegaconf.DictConfig(run.config)
-        if path.endswith("json"):
+        if path.suffix == ".json":
             logger.info(f"No ckpt found in {model_dir}, need to download it first")
             project, job_id = base_job.rsplit("/", 1)
             artifact = api.artifact(
                 "/".join(project, f"model-{job_id}:best")
             )  # assumes `best` exists
-            ckpt_path = (
-                artifact.download() + "/model.ckpt"
-            )  # uses cached version if artifact is already downloaded
+            # uses cached version if artifact is already downloaded
+            ckpt_path = artifact.download() + "/model.ckpt"
         else:
             ckpt_path = path
 
