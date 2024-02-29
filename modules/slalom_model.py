@@ -27,17 +27,21 @@ class SlalomModel:
             slalom_cfg = {}
         tokenizer_name = slalom_cfg.get("tokenizer", "EleutherAI/pythia-160m-v0")
         base_job = slalom_cfg.get("base_job", "slalom/hologram-train/ryoi69ht")
+        artifact_name = slalom_cfg.get("artifact_name", "recovery-model-ryoi69ht:latest")
         api = wandb.Api()
         run = api.run(base_job)
         cfg = omegaconf.DictConfig(run.config)
         if path.suffix == ".json":
             logger.info(f"No ckpt found in {model_dir}, need to download it first")
             project, job_id = base_job.rsplit("/", 1)
-            artifact = api.artifact(
-                "/".join(project, f"model-{job_id}:best")
-            )  # assumes `best` exists
+            # try:
+            #     artifact = api.artifact("/".join([project, f"model-{job_id}:latest"]))
+            #     model_name = "/model.ckpt"
+            # except ValueError:
+            artifact = api.artifact("/".join([project, artifact_name]))  # assumes `best` exists
+            model_name = "/model.ckpt"
             # uses cached version if artifact is already downloaded
-            ckpt_path = artifact.download() + "/model.ckpt"
+            ckpt_path = artifact.download() + model_name
         else:
             ckpt_path = path
 
@@ -133,7 +137,7 @@ class SlalomModel:
             idx_cond = (
                 idx
                 if idx.size(1) <= self.model.gpt.model_config.block_size
-                else idx[:, -self.model.gpt.model_config.block_size :]
+            else idx[:, -self.model.gpt.model_config.block_size :]
             )
             # forward the model to get the logits for the index in the sequence
             logits = self.model(idx_cond)

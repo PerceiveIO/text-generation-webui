@@ -317,7 +317,7 @@ def slalom_loader(model_name):
         configs = list(entries.glob('config.json'))
         if len(ckpt) > 0:
             model_file = ckpt[0]
-        elif len(ckpt) > 0:
+        elif len(configs) > 0:
             model_file = configs[0]
         else:
             logger.error("Could not find a model for slalom.")
