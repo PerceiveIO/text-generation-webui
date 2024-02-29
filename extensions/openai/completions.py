@@ -22,7 +22,12 @@ from modules.chat import (
     load_instruction_template_memoized
 )
 from modules.presets import load_preset_memoized
-from modules.text_generation import decode, encode, generate_reply
+from modules.text_generation import (
+    decode,
+    encode,
+    generate_reply,
+    get_reply_from_output_ids
+)
 
 
 class LogitsBiasProcessor(LogitsProcessor):
@@ -56,7 +61,7 @@ class LogprobProcessor(LogitsProcessor):
         if self.logprobs is not None:  # 0-5
             log_e_probabilities = F.log_softmax(logits, dim=1)
             top_values, top_indices = torch.topk(log_e_probabilities, k=self.logprobs + 1)
-            top_tokens = [decode(tok) for tok in top_indices[0]]
+            top_tokens = [get_reply_from_output_ids([tok]) for tok in top_indices[0]]
             top_probs = [float(x) for x in top_values[0]]
             self.token_alternatives = dict(zip(top_tokens, top_probs))
             debug_msg(repr(self))
@@ -87,6 +92,10 @@ def process_parameters(body, is_legacy=False):
     if generate_params['truncation_length'] == 0:
         generate_params['truncation_length'] = shared.settings['truncation_length']
 
+    if generate_params['temperature'] == 0:
+        generate_params['do_sample'] = False
+        generate_params['top_k'] = 1
+
     if body['preset'] is not None:
         preset = load_preset_memoized(body['preset'])
         generate_params.update(preset)
@@ -101,22 +110,6 @@ def process_parameters(body, is_legacy=False):
     logits_processor = []
     logit_bias = body.get('logit_bias', None)
     if logit_bias:  # {str: float, ...}
-        # XXX convert tokens from tiktoken based on requested model
-        # Ex.: 'logit_bias': {'1129': 100, '11442': 100, '16243': 100}
-        try:
-            encoder = tiktoken.encoding_for_model(generate_params['model'])
-            new_logit_bias = {}
-            for logit, bias in logit_bias.items():
-                for x in encode(encoder.decode([int(logit)]), add_special_tokens=False)[0]:
-                    if int(x) in [0, 1, 2, 29871]:  # XXX LLAMA tokens
-                        continue
-
-                    new_logit_bias[str(int(x))] = bias
-            debug_msg('logit_bias_map', logit_bias, '->', new_logit_bias)
-            logit_bias = new_logit_bias
-        except KeyError:
-            pass  # assume native tokens if we can't find the tokenizer
-
         logits_processor = [LogitsBiasProcessor(logit_bias)]
 
     logprobs = None  # coming to chat eventually
@@ -144,6 +137,30 @@ def convert_history(history):
     user_input = ""
     system_message = ""
 
+    # Multimodal: convert OpenAI format to multimodal extension format
+    if any('content' in entry and isinstance(entry['content'], list) for entry in history):
+        new_history = []
+        for entry in history:
+            if isinstance(entry['content'], list):
+                image_url = None
+                content = None
+                for item in entry['content']:
+                    if not isinstance(item, dict):
+                        continue
+
+                    if item['type'] == 'image_url' and isinstance(item['image_url'], dict):
+                        image_url = item['image_url']['url']
+                    elif item['type'] == 'text' and isinstance(item['text'], str):
+                        content = item['text']
+
+                if image_url and content:
+                    new_history.append({"image_url": image_url, "role": "user"})
+                    new_history.append({"content": content, "role": "user"})
+            else:
+                new_history.append(entry)
+
+        history = new_history
+
     for entry in history:
         if "image_url" in entry:
             image_url = entry['image_url']
@@ -158,6 +175,9 @@ def convert_history(history):
                     raise 'Image cannot be loaded from the URL!'
 
             buffered = BytesIO()
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
             img.save(buffered, format="JPEG")
             img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
             content = f'<img src="data:image/jpeg;base64,{img_str}">'
@@ -171,6 +191,7 @@ def convert_history(history):
             if current_message:
                 chat_dialogue.append([current_message, ''])
                 current_message = ""
+
             current_message = content
         elif role == "assistant":
             current_reply = content
@@ -276,8 +297,6 @@ def chat_completions_common(body: dict, is_legacy: bool = False, stream=False) -
             resp_list: [{
                 "index": 0,
                 "finish_reason": None,
-                # So yeah... do both methods? delta and messages.
-                "message": {'role': 'assistant', 'content': content},
                 "delta": {'role': 'assistant', 'content': content},
             }],
         }
