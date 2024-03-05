@@ -151,6 +151,9 @@ class SlalomModel:
             probs = F.softmax(logits, dim=-1)
             # sample from the distribution
             idx_next = torch.multinomial(probs, num_samples=1)
+            if self.tokenizer.eos_token_id is not None and idx_next == self.tokenizer.eos_token_id:
+                # stop sampling if the end of sequence token is generated
+                break
             # hack for llama tokenizer which needs multiple tokens to place word boundaries
             orig = self.decode(idx.flatten().tolist())
             # append sampled index to the running sequence and continue
